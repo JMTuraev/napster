@@ -1,4 +1,4 @@
-import { contextBridge } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { exec } from 'child_process'
 import { io } from 'socket.io-client'
@@ -30,7 +30,8 @@ const api = {
     connected: () => socket.connected,
     id: () => socket.id
   },
-  runGame
+  runGame,
+  invoke: (channel, data) => ipcRenderer.invoke(channel, data) // ✅ Qo‘shildi
 }
 
 // 🔐 Renderer’ga API’larni ulash

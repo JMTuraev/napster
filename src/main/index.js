@@ -1,11 +1,14 @@
+// main.js
 import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import { registerGameHandlers } from './gameHandlers' // ✅ YANGI
 
+// 🪟 Oyna yaratish funksiyasi
 function createWindow() {
   const mainWindow = new BrowserWindow({
-    kiosk: false,                  // 🟢 KIOSK MODE
+    kiosk: false,
     alwaysOnTop: false,
     frame: true,
     fullscreen: false,
@@ -18,11 +21,10 @@ function createWindow() {
     }
   })
 
-  // ❗ TEST REJIM: ESC bosilsa, kiosk mode'dan chiqadi (faqat dev rejimda)
   mainWindow.webContents.on('before-input-event', (event, input) => {
     if (input.key === 'Escape') {
-      console.log('🔓 ESC bosildi – kiosk mode off');
-      mainWindow.setKiosk(false);
+      console.log('🔓 ESC bosildi – kiosk mode off')
+      mainWindow.setKiosk(false)
     }
   })
 
@@ -39,6 +41,7 @@ function createWindow() {
   }
 }
 
+// 🧠 Ilova tayyor bo‘lganda
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.electron')
 
@@ -48,6 +51,9 @@ app.whenReady().then(() => {
 
   ipcMain.on('ping', () => console.log('pong'))
 
+  // 🧩 Games bilan bog‘liq IPC handlerlarni ro‘yxatdan o‘tkazamiz
+  registerGameHandlers()
+
   createWindow()
 
   app.on('activate', function () {
@@ -55,6 +61,7 @@ app.whenReady().then(() => {
   })
 })
 
+// ❌ Barcha oynalar yopilganda ilovani yopish
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
