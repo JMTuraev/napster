@@ -3,25 +3,19 @@ import { electronAPI } from '@electron-toolkit/preload'
 import { exec } from 'child_process'
 import { io } from 'socket.io-client'
 
-// 📡 Socket ulanish (port 3000)
+// 📡 Socket ulanish
 const socket = io('http://127.0.0.1:3000')
 
-// 🎮 O‘yin ishga tushirish funksiyasi
+// 🎮 O‘yin ishga tushirish
 function runGame(path) {
   exec(`"${path}"`, (error, stdout, stderr) => {
-    if (error) {
-      console.error('❌ Game start error:', error.message)
-      return
-    }
-    if (stderr) {
-      console.warn('⚠️ Game stderr:', stderr)
-      return
-    }
-    console.log('✅ Game output:', stdout)
+    if (error) return console.error('❌ Game error:', error.message)
+    if (stderr) return console.warn('⚠️ stderr:', stderr)
+    console.log('✅ Game started:', stdout)
   })
 }
 
-// 🧠 API obyekt
+// 🔌 API obyekti
 const api = {
   socket: {
     on: (...args) => socket.on(...args),
@@ -31,17 +25,17 @@ const api = {
     id: () => socket.id
   },
   runGame,
-  invoke: (channel, data) => ipcRenderer.invoke(channel, data) // ✅ Qo‘shildi
+  invoke: (channel, data) => ipcRenderer.invoke(channel, data)
 }
 
-// 🔐 Renderer’ga API’larni ulash
+// ❗ API faqat bitta marta ulanishi kerak
 try {
   if (process.contextIsolated) {
     contextBridge.exposeInMainWorld('electron', electronAPI)
     contextBridge.exposeInMainWorld('api', api)
   } else {
-    window.electron = electronAPI
-    window.api = api
+    if (!window.api) window.api = api
+    if (!window.electron) window.electron = electronAPI
   }
 } catch (err) {
   console.error('❌ Preload expose error:', err)

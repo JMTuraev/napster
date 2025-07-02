@@ -1,11 +1,10 @@
-// main.js
+// src/main/index.js
 import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { registerGameHandlers } from './gameHandlers' // ✅ YANGI
+import { registerGameHandlers } from './gameHandlers' // ✅ IPC handler
 
-// 🪟 Oyna yaratish funksiyasi
 function createWindow() {
   const mainWindow = new BrowserWindow({
     kiosk: false,
@@ -17,10 +16,13 @@ function createWindow() {
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      sandbox: false,
+      contextIsolation: true, // ✅ xavfsizlik uchun
+      nodeIntegration: false
     }
   })
 
+  // 🛑 ESC tugmasi bilan kiosk rejimdan chiqish
   mainWindow.webContents.on('before-input-event', (event, input) => {
     if (input.key === 'Escape') {
       console.log('🔓 ESC bosildi – kiosk mode off')
@@ -28,11 +30,13 @@ function createWindow() {
     }
   })
 
+  // 🌐 Tashqi havolalarni default browserda ochish
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
   })
 
+  // 📦 Yuklash rejimi: dev yoki prod
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
     mainWindow.webContents.openDevTools()
@@ -41,7 +45,7 @@ function createWindow() {
   }
 }
 
-// 🧠 Ilova tayyor bo‘lganda
+// 🔋 Ilova tayyor bo‘lganda
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.electron')
 
@@ -49,19 +53,18 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  ipcMain.on('ping', () => console.log('pong'))
+  ipcMain.on('ping', () => console.log('pong')) // test
 
-  // 🧩 Games bilan bog‘liq IPC handlerlarni ro‘yxatdan o‘tkazamiz
-  registerGameHandlers()
+  registerGameHandlers() // 🎮 IPC funksiyalar
 
   createWindow()
 
-  app.on('activate', function () {
+  app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
 
-// ❌ Barcha oynalar yopilganda ilovani yopish
+// ❌ Barcha oynalar yopilganda chiqish
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()

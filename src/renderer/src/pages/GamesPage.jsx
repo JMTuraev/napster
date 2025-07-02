@@ -3,75 +3,72 @@ import React, { useEffect, useState } from 'react'
 export default function GamesPage() {
   const [games, setGames] = useState([])
 
-  useEffect(() => {
-    const fetchGames = () => {
-      // Admin tomonidan qo‘shilgan o‘yinlarni so‘rash
-      window.api.socket.emit('get-games')
+  // 🔄 Admin socket'dan kelgan o‘yinlar ro‘yxatini tekshir va filtrlash
+  const processGames = async (gamesList) => {
+    const filtered = []
 
-      // Serverdan kelgan o‘yinlar
-      window.api.socket.on('games', async (data) => {
-        const filtered = []
-
-        for (const game of data) {
-          const exists = await window.api.invoke('check-path-exists', game.path)
-          if (exists) filtered.push(game)
+    for (const game of gamesList) {
+      try {
+        const exists = await window.api.invoke('check-path-exists', game.path)
+        if (exists) {
+          const iconPath = `/icons/${game.name}.png`
+          filtered.push({ ...game, iconPath })
         }
-
-        setGames(filtered)
-      })
+      } catch (err) {
+        console.error(`❌ ${game.name} fayl tekshiruvda xato:`, err)
+      }
     }
 
-    fetchGames()
+    setGames(filtered)
+  }
+
+  useEffect(() => {
+    // 1️⃣ Socket orqali admin'dan o‘yinlar so‘rash
+    window.api.socket.emit('get-games')
+
+    // 2️⃣ Admin'dan kelgan o‘yinlar ro‘yxatini qabul qilish
+    window.api.socket.on('games', processGames)
 
     return () => {
-      window.api.socket.off('games') // tozalash
+      window.api.socket.off('games', processGames)
     }
   }, [])
 
-  const runGame = (exePath) => {
-    window.api.runGame(exePath)
+  const handleDoubleClick = (path) => {
+    window.api.invoke('run-game', path).catch((err) => {
+      console.error('❌ O‘yin ishga tushmadi:', err)
+    })
   }
 
   return (
-    <div style={{ padding: 24 }}>
-      <h2 style={{ color: '#fff' }}>🎮 O‘yinlar ro‘yxati</h2>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20 }}>
-        {games.length === 0 ? (
-          <p style={{ color: '#aaa' }}>Hech qanday o‘yin topilmadi</p>
-        ) : (
-          games.map((game) => (
-            <div
-              key={game.id}
-              style={{
-                width: 200,
-                padding: 10,
-                background: '#2c2c2c',
-                color: '#fff',
-                borderRadius: 8,
-                textAlign: 'center'
+    <div style={{ padding: '16px', color: 'white' }}>
+      <h1 style={{ fontSize: '24px', marginBottom: '16px' }}>🎮 O‘yinlar ro‘yxati</h1>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
+        {games.map((game) => (
+          <div
+            key={game.id}
+            onDoubleClick={() => handleDoubleClick(game.path)}
+            style={{
+              backgroundColor: '#1e1e1e',
+              borderRadius: '8px',
+              padding: '12px',
+              cursor: 'pointer',
+              textAlign: 'center',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
+            }}
+          >
+            <img
+              src={game.iconPath}
+              alt={game.name}
+              style={{ width: '48px', height: '48px', objectFit: 'contain', marginBottom: '8px' }}
+              onError={(e) => {
+                e.target.src = '/icons/default-icon.png'
               }}
-            >
-              <img
-                src={`./assets/icons/${game.exe}.png`} // agar mavjud bo‘lsa
-                alt={game.name}
-                width={64}
-                height={64}
-              />
-              <h3>{game.name}</h3>
-              <button
-                onClick={() => runGame(game.path)}
-                style={{
-                  marginTop: 10,
-                  padding: '6px 12px',
-                  cursor: 'pointer',
-                  background: 'white'
-                }}
-              >
-                Ishga tushurish
-              </button>
-            </div>
-          ))
-        )}
+            />
+            <p style={{ fontSize: '14px' }}>{game.name}</p>
+          </div>
+        ))}
       </div>
     </div>
   )
