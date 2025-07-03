@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react'
 
+const ADMIN_API_HOST = '192.168.1.7' // Adminning IP sini yozing!
+const ADMIN_API_PORT = 3333
+
 export default function GamesPage() {
   const [games, setGames] = useState([])
 
-  // 🔄 Admin socket'dan kelgan o‘yinlar ro‘yxatini tekshir va filtrlash
+  // 🔄 Admin socket'dan kelgan o‘yinlar ro‘yxatini to‘g‘rilash
   const processGames = async (gamesList) => {
     const filtered = []
 
@@ -11,7 +14,8 @@ export default function GamesPage() {
       try {
         const exists = await window.api.invoke('check-path-exists', game.path)
         if (exists) {
-          const iconPath = `/icons/${game.name}.png`
+          // ICON PATH'ni admin API orqali tarmoqdan olamiz
+          const iconPath = `http://${ADMIN_API_HOST}:${ADMIN_API_PORT}${game.icon}`
           filtered.push({ ...game, iconPath })
         }
       } catch (err) {
@@ -43,7 +47,6 @@ export default function GamesPage() {
   return (
     <div style={{ padding: '16px', color: 'white' }}>
       <h1 style={{ fontSize: '24px', marginBottom: '16px' }}>🎮 O‘yinlar ro‘yxati</h1>
-
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
         {games.map((game) => (
           <div
@@ -63,7 +66,7 @@ export default function GamesPage() {
               alt={game.name}
               style={{ width: '48px', height: '48px', objectFit: 'contain', marginBottom: '8px' }}
               onError={(e) => {
-                e.target.src = '/icons/default-icon.png'
+                e.target.src = `http://${ADMIN_API_HOST}:${ADMIN_API_PORT}/icons/default.ico`
               }}
             />
             <p style={{ fontSize: '14px' }}>{game.name}</p>
