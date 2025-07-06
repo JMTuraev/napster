@@ -1,28 +1,29 @@
-// src/main/index.js
 import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { registerGameHandlers } from './gameHandlers' // ✅ IPC handler
+import { registerGameHandlers } from './gameHandlers.js' // ✅ pathni moslashtiring!
 
 function createWindow() {
   const mainWindow = new BrowserWindow({
+    width: 1280,
+    height: 800,
     kiosk: false,
     alwaysOnTop: false,
     frame: true,
     fullscreen: false,
-    closable: false,
+    closable: true,
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
+      contextIsolation: true,
       sandbox: false,
-      contextIsolation: true, // ✅ xavfsizlik uchun
       nodeIntegration: false
     }
   })
 
-  // 🛑 ESC tugmasi bilan kiosk rejimdan chiqish
+  // 🛑 ESC tugmasi kioskdan chiqish uchun
   mainWindow.webContents.on('before-input-event', (event, input) => {
     if (input.key === 'Escape') {
       console.log('🔓 ESC bosildi – kiosk mode off')
@@ -30,13 +31,13 @@ function createWindow() {
     }
   })
 
-  // 🌐 Tashqi havolalarni default browserda ochish
+  // 🌐 Tashqi havolalarni browserda ochish
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
   })
 
-  // 📦 Yuklash rejimi: dev yoki prod
+  // 📦 Yuklash (dev yoki prod)
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
     mainWindow.webContents.openDevTools()
@@ -45,7 +46,7 @@ function createWindow() {
   }
 }
 
-// 🔋 Ilova tayyor bo‘lganda
+// 🔋 App tayyor bo‘lsa
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.electron')
 
@@ -53,9 +54,11 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  ipcMain.on('ping', () => console.log('pong')) // test
+  // Test uchun
+  ipcMain.on('ping', () => console.log('pong'))
 
-  registerGameHandlers() // 🎮 IPC funksiyalar
+  // ⚡ MUHIM: Faqat bir marta, app boshlanishida
+  registerGameHandlers()
 
   createWindow()
 
@@ -64,9 +67,7 @@ app.whenReady().then(() => {
   })
 })
 
-// ❌ Barcha oynalar yopilganda chiqish
+// ❌ Barcha oynalar yopilsa, ilovani to‘xtatish
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
+  if (process.platform !== 'darwin') app.quit()
 })

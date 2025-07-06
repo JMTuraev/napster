@@ -1,68 +1,52 @@
 import React, { useEffect, useState, useRef } from 'react'
 
-// FAQAT SHU YERGA ADMIN KOMPYUTER STATIC IP’sini YOZING:
-const ADMIN_API_HOST = '172.20.10.2' // Misol uchun: 192.168.1.100 yoki 172.20.10.2
-const ADMIN_API_PORT = 3333
-
 export default function GamesPage() {
-  const [games, setGames] = useState([])
+  const [allGames, setAllGames] = useState([])
   const [tabs, setTabs] = useState([])
   const [activeTabId, setActiveTabId] = useState(1)
-  const lastGamesRaw = useRef([]) // eng so‘nggi games massivini saqlash uchun
 
-  // O‘yinlarni to‘g‘rilab (filtirlab) ko‘rsatish
-  const processGames = async (gamesList) => {
-    lastGamesRaw.current = gamesList // yangi kelgan barcha games saqlanadi
-
-    // Faqat aktiv tab uchun
-    const tabGames = gamesList.filter((game) => game.tabId === activeTabId)
-    const filtered = []
-
-    for (const game of tabGames) {
-      try {
-        const exists = await window.api.invoke('check-path-exists', game.path)
-        if (exists) {
-          const iconPath = `http://${ADMIN_API_HOST}:${ADMIN_API_PORT}${game.icon}`
-          filtered.push({ ...game, iconPath })
-        }
-      } catch (err) {
-        // ignore
-      }
-    }
-    setGames(filtered)
-  }
-
-  // Tab almashtirilganda va yangi games kelganda, faqat shu tab uchun filter!
-  useEffect(() => {
-    // Faqat eng so‘nggi kelgan gamesdan filter qilib ko‘rsat
-    if (lastGamesRaw.current.length) {
-      processGames(lastGamesRaw.current)
-    }
-    // eslint-disable-next-line
-  }, [activeTabId])
-
+  // O‘yinlar va tabs’ni faqat bir marta socketdan olib kelamiz
   useEffect(() => {
     window.api.socket.emit('get-tabs')
-    window.api.socket.emit('get-games') // barcha o‘yinlar
+    window.api.socket.emit('get-games')
 
-    window.api.socket.on('games', processGames)
+    // Faqat bir marta handler
+    const handleGames = async (gamesList) => {
+      // Har bir o‘yin uchun icon PNG faqat bir marta yaratiladi
+      const gamesWithIcons = []
+      for (const game of gamesList) {
+        try {
+          const exists = await window.api.checkPathExists(game.path)
+          if (exists) {
+            const iconName = game.exe.replace(/\.exe$/i, '') + '.png'
+            const iconPath = `/icons/${iconName}`
+            await window.api.getIcon(game.path) // faqat bir marta PNG yaratadi
+            gamesWithIcons.push({ ...game, iconPath })
+          }
+        } catch {
+          // ignore
+        }
+      }
+      setAllGames(gamesWithIcons)
+    }
+
+    window.api.socket.on('games', handleGames)
     window.api.socket.on('tabs', setTabs)
 
     return () => {
-      window.api.socket.off('games', processGames)
+      window.api.socket.off('games', handleGames)
       window.api.socket.off('tabs', setTabs)
     }
-    // eslint-disable-next-line
   }, [])
 
-  const handleDoubleClick = (path) => {
-    window.api.invoke('run-game', path).catch((err) => {
-      console.error('❌ O‘yin ishga tushmadi:', err)
-    })
-  }
+  // Har doim activeTabId bo‘yicha filter — renderda filter
+  const games = allGames.filter((game) => game.tabId === activeTabId)
 
-  const handleTabClick = (tabId) => {
-    setActiveTabId(tabId)
+  // O‘yinni ishga tushirish
+  const handleDoubleClick = (path) => {
+    window.api.runGame(path).catch((err) => {
+      window.alert?.('❌ O‘yin ishga tushmadi:\n' + err)
+    })
   }
 
   return (
@@ -72,7 +56,7 @@ export default function GamesPage() {
         {tabs.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => handleTabClick(tab.id)}
+            onClick={() => setActiveTabId(tab.id)}
             style={{
               background: activeTabId === tab.id ? '#4a90e2' : '#222345',
               color: activeTabId === tab.id ? '#fff' : '#cdd2e3',
@@ -137,7 +121,9 @@ export default function GamesPage() {
                 boxShadow: '0 2px 8px #191e3a40'
               }}
               onError={(e) => {
-                e.target.src = `http://${ADMIN_API_HOST}:${ADMIN_API_PORT}/icons/default.png`
+                if (!e.target.src.endsWith('/icons/default-icon.png')) {
+                  e.target.src = '/icons/default-icon.png'
+                }
               }}
             />
             <div
