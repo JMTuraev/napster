@@ -21,14 +21,12 @@ export default function App() {
         >
           Games
         </button>
-  
       </div>
 
       {/* 📄 Sahifalar */}
       <div className="flex-1 overflow-auto">
         {page === 'user' && <UserPage />}
         {page === 'games' && <GamesPage />}
-       
       </div>
     </div>
   )
