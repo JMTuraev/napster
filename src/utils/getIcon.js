@@ -6,7 +6,7 @@ const iconsDir = join(process.cwd(), 'src', 'renderer', 'public', 'icons')
 
 export function getIconBuffer(exePath) {
   try {
-    return extractIcon(exePath, 64)
+    return extractIcon(exePath, 32)
   } catch {
     return null
   }
