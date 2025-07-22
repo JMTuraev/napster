@@ -1,20 +1,27 @@
+// src/socket.js
 import { io } from 'socket.io-client'
-import macaddress from 'macaddress'
 
-const socket = io('http://localhost:3000') // ✅ Hozircha localhost, bir kompyuter
-
-macaddress.one((err, mac) => {
-  if (err) {
-    console.error('❌ MAC olishda xato:', err)
-    return
-  }
-
-  const user = {
-    mac
-  }
-
-  socket.emit('new-user', user)
-  console.log('📤 [DEV] MAC yuborildi:', user)
+// SOCKET ulanish (admin yoki localhost IP/port)
+const socket = io('http://localhost:3000', {
+  transports: ['websocket'],
+  reconnection: true
 })
 
+// --- MAC addressni olish va socket orqali yuborish ---
+export function sendMacOnce() {
+  if (!window.api || !window.api.getMac) {
+    console.error('window.api.getMac topilmadi!')
+    return
+  }
+  window.api.getMac().then((mac) => {
+    if (!mac) {
+      console.error('MAC topilmadi')
+      return
+    }
+    socket.emit('new-user', { mac })
+    console.log('📤 [DEV] MAC yuborildi:', mac)
+  })
+}
+
+// default export — socket o‘zi
 export default socket

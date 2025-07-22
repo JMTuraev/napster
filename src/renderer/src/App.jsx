@@ -1,35 +1,38 @@
-import { useState } from 'react'
-import UserPage from './pages/User'
-import GamesPage from './pages/GamesPage'
+// src/App.js (Yoki asosiy komponent)
+import React, { useEffect, useState } from 'react'
+import socket from './socket' // admin serverga ulanish uchun
 
 export default function App() {
-  const [page, setPage] = useState('user') // 'user' | 'games' | 'admin'
+  const [mac, setMac] = useState(null)
+  const [locked, setLocked] = useState(true)
+
+  useEffect(() => {
+    // MAC addressni olish
+    window.api.getMac().then((mac) => setMac(mac))
+  }, [])
+
+  useEffect(() => {
+    if (!mac) return
+    // Faqat o'z MAC uchun lock/unlock eshitish
+    const onLock = (msgMac) => {
+      if (msgMac === mac) setLocked(true)
+    }
+    const onUnlock = (msgMac) => {
+      if (msgMac === mac) setLocked(false)
+    }
+    socket.on('lock', onLock)
+    socket.on('unlock', onUnlock)
+    return () => {
+      socket.off('lock', onLock)
+      socket.off('unlock', onUnlock)
+    }
+  }, [mac])
 
   return (
-    <div className="w-screen h-screen bg-black text-white flex flex-col">
-      {/* 🔘 Navigatsiya */}
-      <div className="flex justify-center gap-4 p-4 bg-gray-900">
-        <button
-          onClick={() => setPage('user')}
-          className={`px-4 py-2 rounded ${page === 'user' ? 'bg-blue-600' : 'bg-gray-700'}`}
-        >
-          User
-        </button>
-        <button
-          onClick={() => setPage('games')}
-          className={`px-4 py-2 rounded ${page === 'games' ? 'bg-green-600' : 'bg-gray-700'}`}
-        >
-          Games
-        </button>
-  
-      </div>
-
-      {/* 📄 Sahifalar */}
-      <div className="flex-1 overflow-auto">
-        {page === 'user' && <UserPage />}
-        {page === 'games' && <GamesPage />}
-       
-      </div>
+    <div>
+      <h2>MAC: {mac || '...'}</h2>
+      <h2 style={{ color: locked ? 'red' : 'green' }}>{locked ? 'LOCKED' : 'UNLOCKED'}</h2>
+      {/* Qolgan UI... */}
     </div>
   )
 }

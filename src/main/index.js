@@ -1,9 +1,44 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, session } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { registerGameHandlers } from './gameHandlers.js' // ✅ pathni moslashtiring!
+import os from 'os'
+import { registerGameHandlers } from './gameHandlers.js'
 
+// --- CSP PATCH: SOCKET.IO va boshqa kerakli resurslar uchun ---
+function patchCSP() {
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    // Bu yerda barcha kerakli IP va portlarni qo‘shing (prod va dev uchun)
+    const cspDirectives = [
+      "default-src 'self'",
+      "connect-src 'self' ws://localhost:3000 http://localhost:3000 ws://127.0.0.1:3000 http://127.0.0.1:3000 ws://192.168.0.100:3000 http://192.168.0.100:3000",
+      "script-src 'self' 'unsafe-inline'", // Dev/prototip uchun; prod uchun 'unsafe-inline' ni olib tashlash tavsiya!
+      "style-src 'self' 'unsafe-inline'" // Dev/prototip uchun; prod uchun 'unsafe-inline' ni olib tashlash tavsiya!
+    ].join('; ')
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [cspDirectives]
+      }
+    })
+  })
+}
+
+// --- MAC addressni IPC orqali uzatish ---
+function getMacAddress() {
+  const nets = os.networkInterfaces()
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name]) {
+      if (net.family === 'IPv4' && !net.internal && net.mac && net.mac !== '00:00:00:00:00:00') {
+        return net.mac
+      }
+    }
+  }
+  return null
+}
+ipcMain.handle('get-mac', () => getMacAddress())
+
+// --- Yangi Window yaratish ---
 function createWindow() {
   const mainWindow = new BrowserWindow({
     width: 1280,
@@ -23,7 +58,7 @@ function createWindow() {
     }
   })
 
-  // 🛑 ESC tugmasi kioskdan chiqish uchun
+  // ESC tugmasi bilan kioskdan chiqish
   mainWindow.webContents.on('before-input-event', (event, input) => {
     if (input.key === 'Escape') {
       console.log('🔓 ESC bosildi – kiosk mode off')
@@ -31,13 +66,13 @@ function createWindow() {
     }
   })
 
-  // 🌐 Tashqi havolalarni browserda ochish
+  // Tashqi havolalarni browserda ochish
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
   })
 
-  // 📦 Yuklash (dev yoki prod)
+  // Dev yoki prod yuklash
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
     mainWindow.webContents.openDevTools()
@@ -46,9 +81,12 @@ function createWindow() {
   }
 }
 
-// 🔋 App tayyor bo‘lsa
+// --- App tayyor bo‘lsa ---
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.electron')
+
+  // CSP patch faqat bir marta va windowdan oldin
+  patchCSP()
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
@@ -57,17 +95,19 @@ app.whenReady().then(() => {
   // Test uchun
   ipcMain.on('ping', () => console.log('pong'))
 
-  // ⚡ MUHIM: Faqat bir marta, app boshlanishida
+  // Qo‘shimcha IPC/handlerlar
   registerGameHandlers()
 
+  // Asosiy oynani ochish
   createWindow()
 
+  // MacOS uchun yangi oynani ochish
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
 
-// ❌ Barcha oynalar yopilsa, ilovani to‘xtatish
+// --- Barcha oynalar yopilsa, ilovani to‘xtatish ---
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })

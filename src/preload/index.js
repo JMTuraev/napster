@@ -2,15 +2,15 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { io } from 'socket.io-client'
 
-// 📡 SOCKET ulanish (localhost, admin/server)
+// --- SOCKET ulanish (localhost yoki admin IP) ---
 const socket = io('http://127.0.0.1:3000', {
-  transports: ['websocket'], // faqat websocket, fallbacklarsni oldini oladi
+  transports: ['websocket'],
   reconnection: true
 })
 
-// 🔌 API: socket va IPC
+// --- API obyekt: SOCKET + IPC funksiyalar ---
 const api = {
-  // --- SOCKET funksiyalari ---
+  // --- SOCKET funksiya(lar) ---
   socket: {
     on: (...args) => socket.on(...args),
     off: (...args) => socket.off(...args),
@@ -19,16 +19,15 @@ const api = {
     id: () => socket.id
   },
 
-  // --- IPC (Electron) funksiyalari ---
+  // --- IPC (Electron) funksiya(lar) ---
   invoke: (channel, data) => ipcRenderer.invoke(channel, data),
 
-  // --- getIcon: exe path uchun IPC orqali icon ajratish ---
-  // Foydalanishda: await window.api.getIcon(exePath)
+  // --- getIcon: exe path uchun icon olish ---
   getIcon: async (exePath) => {
     try {
       const res = await ipcRenderer.invoke('extract-save-icon', exePath)
-      return res.icon // har doim '/icons/...' bo‘ladi (yoki default)
-    } catch (err) {
+      return res.icon
+    } catch {
       return '/icons/default-icon.png'
     }
   },
@@ -49,16 +48,25 @@ const api = {
     } catch (err) {
       return Promise.reject(err)
     }
+  },
+
+  // --- MAC address olish ---
+  getMac: async () => {
+    try {
+      return await ipcRenderer.invoke('get-mac')
+    } catch {
+      return null
+    }
   }
 }
 
-// --- Expose faqat bitta marta va contextIsolated rejimida ---
+// --- Expose faqat bitta marta va contextIsolation rejimida ---
 try {
   if (process.contextIsolated) {
     contextBridge.exposeInMainWorld('electron', electronAPI)
     contextBridge.exposeInMainWorld('api', api)
   } else {
-    // Fallback: dev/prod uchun
+    // Fallback (dev/prod uchun)
     if (!window.api) window.api = api
     if (!window.electron) window.electron = electronAPI
   }
