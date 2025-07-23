@@ -1,3 +1,5 @@
+// src/preload/index.js
+
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { io } from 'socket.io-client'
@@ -10,7 +12,7 @@ const socket = io('http://127.0.0.1:3000', {
 
 // --- API obyekt: SOCKET + IPC funksiyalar ---
 const api = {
-  // --- SOCKET funksiya(lar) ---
+  // --- SOCKET funksiyalari ---
   socket: {
     on: (...args) => socket.on(...args),
     off: (...args) => socket.off(...args),
@@ -19,7 +21,7 @@ const api = {
     id: () => socket.id
   },
 
-  // --- IPC (Electron) funksiya(lar) ---
+  // --- IPC funksiyalari ---
   invoke: (channel, data) => ipcRenderer.invoke(channel, data),
 
   // --- getIcon: exe path uchun icon olish ---
@@ -57,7 +59,10 @@ const api = {
     } catch {
       return null
     }
-  }
+  },
+
+  // --- APP QUIT: Electron ilovasini butunlay yopish ---
+  appQuit: () => ipcRenderer.invoke('app-quit')
 }
 
 // --- Expose faqat bitta marta va contextIsolation rejimida ---

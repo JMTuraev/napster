@@ -1,4 +1,4 @@
-// src/App.js (Yoki asosiy komponent)
+// src/App.js
 import React, { useEffect, useState } from 'react'
 import socket from './socket' // admin serverga ulanish uchun
 
@@ -13,13 +13,25 @@ export default function App() {
 
   useEffect(() => {
     if (!mac) return
-    // Faqat o'z MAC uchun lock/unlock eshitish
+
+    // Lock signal — faqat shu user uchun
     const onLock = (msgMac) => {
       if (msgMac === mac) setLocked(true)
     }
+
+    // Unlock signal — faqat shu user uchun
     const onUnlock = (msgMac) => {
-      if (msgMac === mac) setLocked(false)
+      if (msgMac === mac) {
+        setLocked(false)
+        // UNLOCK bo‘lsa ilovani butunlay yopish (Electron)
+        if (window.api?.appQuit) {
+          window.api.appQuit() // Preload orqali app.quit()
+        } else if (window?.close) {
+          window.close() // Oddiy browser fallback
+        }
+      }
     }
+
     socket.on('lock', onLock)
     socket.on('unlock', onUnlock)
     return () => {

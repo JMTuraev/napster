@@ -4,16 +4,16 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import os from 'os'
 import { registerGameHandlers } from './gameHandlers.js'
+import { setupWatchdog } from './watchdog.js' // <---- asosiy import
 
 // --- CSP PATCH: SOCKET.IO va boshqa kerakli resurslar uchun ---
 function patchCSP() {
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    // Bu yerda barcha kerakli IP va portlarni qo‘shing (prod va dev uchun)
     const cspDirectives = [
       "default-src 'self'",
       "connect-src 'self' ws://localhost:3000 http://localhost:3000 ws://127.0.0.1:3000 http://127.0.0.1:3000 ws://192.168.0.100:3000 http://192.168.0.100:3000",
-      "script-src 'self' 'unsafe-inline'", // Dev/prototip uchun; prod uchun 'unsafe-inline' ni olib tashlash tavsiya!
-      "style-src 'self' 'unsafe-inline'" // Dev/prototip uchun; prod uchun 'unsafe-inline' ni olib tashlash tavsiya!
+      "script-src 'self' 'unsafe-inline'", // Dev uchun, prodga chiqqanda 'unsafe-inline' ni olib tashlang!
+      "style-src 'self' 'unsafe-inline'" // Dev uchun, prodga chiqqanda 'unsafe-inline' ni olib tashlang!
     ].join('; ')
     callback({
       responseHeaders: {
@@ -37,6 +37,11 @@ function getMacAddress() {
   return null
 }
 ipcMain.handle('get-mac', () => getMacAddress())
+
+// --- Ilovani to‘liq yopish (user uchun appQuit) ---
+ipcMain.handle('app-quit', () => {
+  app.quit()
+})
 
 // --- Yangi Window yaratish ---
 function createWindow() {
@@ -84,24 +89,19 @@ function createWindow() {
 // --- App tayyor bo‘lsa ---
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.electron')
-
-  // CSP patch faqat bir marta va windowdan oldin
   patchCSP()
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  // Test uchun
   ipcMain.on('ping', () => console.log('pong'))
 
-  // Qo‘shimcha IPC/handlerlar
-  registerGameHandlers()
+  setupWatchdog() // <--- Watchdog va Task Scheduler ni sozlash
 
-  // Asosiy oynani ochish
+  registerGameHandlers()
   createWindow()
 
-  // MacOS uchun yangi oynani ochish
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
